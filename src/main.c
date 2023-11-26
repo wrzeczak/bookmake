@@ -8,6 +8,8 @@
 
 #include <ncurses.h>
 
+#include "colors.h"
+
 //------------------------------------------------------------------------------
 
 #define TARGET_WIDTH 120 // target width is 120 characters
@@ -19,12 +21,6 @@ bool debrief = true; // set to false if post-execution debug info is not needed
 enum {
 	MODE_EDIT,
 	MODE_CMD
-};
-
-// infobar color pair indicies
-enum {
-	MODE_EDIT_IFBP = 64, // Edit Mode InFoBarPair
-	MODE_CMD_IFBP
 };
 
 //------------------------------------------------------------------------------
@@ -46,7 +42,7 @@ calls curses_init() (for now, will call more as they are added...)
 */
 int init(); // see above -- returns non-zero error code if fails
 int curses_init(); // initializes curses -- who knew! -- returns error code
-void colors_init(); // initalizes curses color pairs, see enum above
+// void colors_init(); // initalizes curses color pairs, defined in colors.h
 
 // --- edit-mode functions ---
 void edit_mode_infobar(WINDOW * interact); // displays the edit-mode infobar
@@ -75,7 +71,6 @@ int padding() {
 
 int curses_init() {
 	initscr();
-	start_color();
 	raw();
 	keypad(stdscr, TRUE);
 	noecho(); // controversial, this will be toggled when needed!
@@ -85,18 +80,13 @@ int curses_init() {
 	return 0;
 }
 
-// this init function returns nothing because i don't even know how this would fail
-void colors_init() { // note: does not call start_color()!
-	init_color(COLOR_RED, 700, 0, 0);
-	init_color(COLOR_WHITE, 1000, 1000, 1000);
-	init_pair(MODE_EDIT_IFBP, COLOR_RED, COLOR_WHITE);
-}
 
 int init() {
 	int curses_return = curses_init();
 
 	if(curses_return != 0) {
 		printf("CURSES INITIALIZATION FAILED: %02d!\n", curses_return);
+		endwin();
 	}
 
 	colors_init();
@@ -149,6 +139,8 @@ int main(void) {
 		if(state == MODE_EDIT) edit_mode_infobar(interact);
 
 		int c = getch();
+
+		print_themes(interact);
 
 		if(c == (int) 'Q') program_should_exit = true;
 	}
