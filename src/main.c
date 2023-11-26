@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #include <ncurses.h>
 
@@ -20,7 +21,8 @@ bool debrief = true; // set to false if post-execution debug info is not needed
 // window states
 enum {
 	MODE_EDIT,
-	MODE_CMD
+	MODE_CMD,
+	MODE_NORMAL
 };
 
 //------------------------------------------------------------------------------
@@ -44,8 +46,12 @@ int init(); // see above -- returns non-zero error code if fails
 int curses_init(); // initializes curses -- who knew! -- returns error code
 // void colors_init(); // initalizes curses color pairs, defined in colors.h
 
-// --- edit-mode functions ---
-void edit_mode_infobar(WINDOW * interact); // displays the edit-mode infobar
+// --- infobar functions ---
+void edit_mode_infobar(WINDOW * interact);    // displays the edit-mode infobar
+void cmd_mode_infobar(WINDOW * interact);     // same as above in command mode
+void normal_mode_infobar(WINDOW * interact);  // you'll never guess!
+void clear_infobar(WINDOW * interact);		  // sets the infobar to blank
+void remove_infobar(WINDOW * interact);		  // removes the infobar
 
 //- utility functions ----------------------------------------------------------
 
@@ -82,35 +88,97 @@ int curses_init() {
 
 
 int init() {
+	int final_return = 0;
 	int curses_return = curses_init();
 
 	if(curses_return != 0) {
 		printf("CURSES INITIALIZATION FAILED: %02d!\n", curses_return);
-		endwin();
+		final_return++;
 	}
 
-	colors_init();
+	// from colors.h
+	int colors_return = colors_init();
+
+	if(colors_return != 0) {
+		printf("COLOR INITIALIZATION FAILED: %02d!\n", colors_return);
+		final_return++;
+	}
 
 	assert(MINIMUM_WIDTH < TARGET_WIDTH); // just to be sure
 
-	return curses_return;
+	return final_return;
 }
 
 //------------------------------------------------------------------------------
 
+void clear_infobar(WINDOW * interact) {
+	wattron(interact, COLOR_PAIR(MODE_CLEAR_IFBP));
+
+	char infill[width() - 5 + 1]; // -4 for the side-to-side padding, +1 for '\0'
+
+	memset(infill, ' ', width() - 4);
+
+	infill[width() - 5 + 1] = '\0';
+
+	mvwprintw(interact, LINES - 2, 2, "%s", infill);
+
+	wattroff(interact, COLOR_PAIR(MODE_CLEAR_IFBP));
+}
+
 void edit_mode_infobar(WINDOW * interact) {
+	clear_infobar(interact);
+
 	wattron(interact, COLOR_PAIR(MODE_EDIT_IFBP));
 	wattron(interact, A_BOLD);
 
-	mvwprintw(interact, LINES - 2, 2, "EDIT MODE   ");
+	mvwprintw(interact, LINES - 2, 2, "[F1] EDIT MODE   ");
 
 	wattroff(interact, A_BOLD);
 
-	mvwprintw(interact, LINES - 2, 14, "File drawer -- currently empty :(            Press SHIFT + Q to exit!");
+	mvwprintw(interact, LINES - 2, 21, "File drawer -- currently empty :( ");
 	wrefresh(interact);
 
 	wattroff(interact, COLOR_PAIR(MODE_EDIT_IFBP));
 }
+
+void cmd_mode_infobar(WINDOW * interact) {
+	clear_infobar(interact);
+
+	wattron(interact, COLOR_PAIR(MODE_CMD_IFBP));
+	wattron(interact, A_BOLD);
+
+	mvwprintw(interact, LINES - 2, 2, "[F2] COMMAND MODE   ");
+
+	wattroff(interact, A_BOLD);
+
+	mvwprintw(interact, LINES - 2, 21, "Commands are not currently implemented. ");
+	wrefresh(interact);
+
+	wattroff(interact, COLOR_PAIR(MODE_CMD_IFBP));
+}
+
+void normal_mode_infobar(WINDOW * interact) {
+	clear_infobar(interact);
+
+	wattron(interact, COLOR_PAIR(MODE_NORMAL_IFBP));
+	wattron(interact, A_BOLD);
+
+	mvwprintw(interact, LINES - 2, 2, "[F3] NORMAL MODE   ");
+
+	wattroff(interact, A_BOLD);
+
+	mvwprintw(interact, LINES - 2, 21, "SHIFT + Q to exit. F1, F2, F3 to switch modes. ");
+	wrefresh(interact);
+
+	wattroff(interact, COLOR_PAIR(MODE_NORMAL_IFBP));
+}
+
+/*
+void remove_infobar(WINDOW * interact) {
+	(void*) interact;
+	return;
+}
+*/
 
 //------------------------------------------------------------------------------
 
@@ -128,21 +196,49 @@ int main(void) {
 	interact = newwin(LINES, width(), 0, padding());
 	box(interact, 0, 0);
 
+	clear_infobar(interact);
 	wrefresh(interact);
 	refresh();
 
 	bool program_should_exit = false;
 
-	int state = MODE_EDIT;
+	int state = MODE_NORMAL;
 
 	while(!program_should_exit) {
-		if(state == MODE_EDIT) edit_mode_infobar(interact);
+		switch(state) {
+			case MODE_EDIT:
+				edit_mode_infobar(interact);
+				break;
+			case MODE_CMD:
+				cmd_mode_infobar(interact);
+				break;
+			default:
+				normal_mode_infobar(interact);
+				break;
+		}
 
 		int c = getch();
 
-		print_themes(interact);
+		// input handler
+		switch(c) {
+			case (int) 'Q':
+				if(state == MODE_NORMAL) program_should_exit = true;
+				break;
+			case KEY_F(1):
+				state = MODE_EDIT;
+				break;
+			case KEY_F(2):
+				state = MODE_CMD;
+				break;
+			case KEY_F(3):
+				state = MODE_NORMAL;
+				break;
+			default:
+				break;
+		}
 
-		if(c == (int) 'Q') program_should_exit = true;
+		refresh();
+		wrefresh(interact);
 	}
 
 	//--------------------------------------------------------------------------

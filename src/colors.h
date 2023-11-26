@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #include <ncurses.h>
 
@@ -21,6 +22,9 @@ enum {
 	// colors for the info bar
 	MODE_EDIT_IFBP = 8,
 	MODE_CMD_IFBP,
+	MODE_NORMAL_IFBP,
+	MODE_CLEAR_IFBP,	// not really a mode -- used to clear the infobar
+	MODE_NONE_IFBP,		// also not really a mode -- used to delete the infobar
 	// colors for theming, text editor background and foreground
 	TT_DARK_MODE = 16,
 	TT_LIGHT_MODE,
@@ -66,6 +70,15 @@ int colors_init() {
 	// define infobar color pairs
 	init_pair(MODE_EDIT_IFBP, COLOR_RED, COLOR_WHITE);
 	init_pair(MODE_CMD_IFBP, COLOR_BLUE, COLOR_WHITE);
+	init_pair(MODE_NORMAL_IFBP, COLOR_BLACK, COLOR_WHITE);
+	init_pair(MODE_CLEAR_IFBP, COLOR_WHITE, COLOR_WHITE);
+	init_pair(MODE_NONE_IFBP, COLOR_GRAY, COLOR_GRAY);
+
+	/*
+	TODO: currently, the infobar clears in TT_DARK_MODE, because that's the
+	default color theme. when implementing variable colors themes, be sure
+	to change the MODE_NONE_IFBP to tolerate this!
+	*/
 
 	// define theme color pairs
 	init_pair(TT_DARK_MODE, COLOR_WHITE, COLOR_GRAY);
