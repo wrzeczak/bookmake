@@ -12,6 +12,14 @@ A simple terminal text editor focused on writing, not code editing. Vim-inspired
 - [x] Cool bugs.
 - [ ] Compiler warnings (*clean* software!).
 
+### Usage
+
+To switch between program states, use `F1` (edit), `F2` (command).
+
+Edit mode will allow you to edit the text before you. Essentially Vim's insert mode.
+
+Command mode will allow you to save/create files, changes themes, etc. It's essentially like Vim's normal mode.
+
 ### Exit Codes
 
 NOTE: These reference the error code printed out onto the terminal, not the error code that the program exits with. The program exits with the amount of init functions that failed, ie. if colors_init() and curses_init() both fail, the program exits with code 2.
