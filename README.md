@@ -35,3 +35,5 @@ NOTE: These reference the error code printed out onto the terminal, not the erro
 FYI: I write and test on Linux.
 
 `LAVENDER TOWN` -- When displaying text in a color theme, changing tabs (in my case, changing dwm windows) screws up the color themes and makes them all lavender-y. I don't know what causes this. For now, just don't alt-tab? Beta and buggy software, folks!
+
+`CHARACTER INPUT` -- It doesn't work. Backspace, enter, text wrapping, all of it.
