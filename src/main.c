@@ -4,12 +4,28 @@
 //------------------------------------------------------------------------------//
 
 #include <stdio.h>
+#include <assert.h>
 
 #include <ncurses.h>
 
 //------------------------------------------------------------------------------
 
-#define TARGET_WIDTH 120			// target width is 120 characters
+#define TARGET_WIDTH 120 // target width is 120 characters
+#define MINIMUM_WIDTH 100 // minimum acceptable width
+
+bool debrief = true; // set to false if post-execution debug info is not needed
+
+// window states
+enum {
+	MODE_EDIT,
+	MODE_CMD
+};
+
+// infobar color pair indicies
+enum {
+	MODE_EDIT_IFBP = 64, // Edit Mode InFoBarPair
+	MODE_CMD_IFBP
+};
 
 //------------------------------------------------------------------------------
 
@@ -30,11 +46,15 @@ calls curses_init() (for now, will call more as they are added...)
 */
 int init(); // see above -- returns non-zero error code if fails
 int curses_init(); // initializes curses -- who knew! -- returns error code
+void colors_init(); // initalizes curses color pairs, see enum above
+
+// --- edit-mode functions ---
+void edit_mode_infobar(WINDOW * interact); // displays the edit-mode infobar
 
 //- utility functions ----------------------------------------------------------
 
-// note: i'm pretty sure the lifetime of COLS is between initsrc() and endwin()
 int width() {
+	// note: pretty sure the lifetime of COLS is between initscr() and endwin()
 	if(COLS < TARGET_WIDTH) return COLS;
 	else return TARGET_WIDTH;
 	/*
@@ -46,10 +66,7 @@ int width() {
 	*/
 }
 
-// returns the amount of padding needed for the text, similar lifetime concerns
 int padding() {
-	int w = width();
-
 	if(COLS <= TARGET_WIDTH) return 0;
 	else return (COLS - TARGET_WIDTH) / 2;
 }
@@ -58,39 +75,117 @@ int padding() {
 
 int curses_init() {
 	initscr();
+	start_color();
 	raw();
 	keypad(stdscr, TRUE);
 	noecho(); // controversial, this will be toggled when needed!
 
-	refresh();
+	if(COLS < MINIMUM_WIDTH) return 80;
 
 	return 0;
 }
 
-int init() {
-	int curses_init_return = curses_init();
+// this init function returns nothing because i don't even know how this would fail
+void colors_init() { // note: does not call start_color()!
+	init_color(COLOR_RED, 700, 0, 0);
+	init_color(COLOR_WHITE, 1000, 1000, 1000);
+	init_pair(MODE_EDIT_IFBP, COLOR_RED, COLOR_WHITE);
+}
 
-	return curses_init_return;
+int init() {
+	int curses_return = curses_init();
+
+	if(curses_return != 0) {
+		printf("CURSES INITIALIZATION FAILED: %02d!\n", curses_return);
+	}
+
+	colors_init();
+
+	assert(MINIMUM_WIDTH < TARGET_WIDTH); // just to be sure
+
+	return curses_return;
+}
+
+//------------------------------------------------------------------------------
+
+void edit_mode_infobar(WINDOW * interact) {
+	wattron(interact, COLOR_PAIR(MODE_EDIT_IFBP));
+	wattron(interact, A_BOLD);
+
+	mvwprintw(interact, LINES - 2, 2, "EDIT MODE   ");
+
+	wattroff(interact, A_BOLD);
+
+	mvwprintw(interact, LINES - 2, 14, "File drawer -- currently empty :(            Press SHIFT + Q to exit!");
+	wrefresh(interact);
+
+	wattroff(interact, COLOR_PAIR(MODE_EDIT_IFBP));
 }
 
 //------------------------------------------------------------------------------
 
 int main(void) {
 	int init_return = init();
+	refresh();
 
 	if(init_return != 0) {
-		printf("INITIALIZATION ERROR: %d! Closing...\n", init_return);
+		printf("INITIALIZATION ERROR! Crashing and burning...\n");
 		return init_return;
 	}
 
-	int w = width();
-	int p = padding();
-	int cols_was = COLS;
+	WINDOW * interact;
 
-	getch();
+	interact = newwin(LINES, width(), 0, padding());
+	box(interact, 0, 0);
+
+	wrefresh(interact);
+	refresh();
+
+	bool program_should_exit = false;
+
+	int state = MODE_EDIT;
+
+	while(!program_should_exit) {
+		if(state == MODE_EDIT) edit_mode_infobar(interact);
+
+		int c = getch();
+
+		if(c == (int) 'Q') program_should_exit = true;
+	}
+
+	//--------------------------------------------------------------------------
+
+	// debrief vars
+
+	bool had_color = has_colors();
+
+	int cols_was = COLS;
+	int lines_was = LINES;
+	int colors_was = COLORS;
+	int color_pairs_was = COLOR_PAIRS;
+
+	int width_was = width();
+	int padding_was = padding();
+
+	//--------------------------------------------------------------------------
+
+	// de-init functions
+	delwin(interact);
 	endwin();
 
-	printf("Grabbed width: %d, COLS was %d, TARGET_WIDTH was %d, so padding was %d.\n", w, cols_was, TARGET_WIDTH, p);
+	//--------------------------------------------------------------------------
+
+	// toggleable debug debrief
+
+	if(debrief) {
+		printf("\n--- DEBRIEF ---\n\n");
+		printf("The terminal %s in color mode.\n", had_color ? "ran" : "did not run");
+		if(had_color) printf("The terminal supported %d COLORS and %d COLOR_PAIRS.\n", colors_was, color_pairs_was);
+		printf("The numbers, Mason! COLS was %d, LINES was %d. Thusly, width was %d and padding %d, with a TARGET_WIDTH of %d and MINIMUM_WIDTH of %d.\n", cols_was, lines_was, width_was, padding_was, TARGET_WIDTH, MINIMUM_WIDTH);
+
+
+		printf("\n--- DEBRIEF END ---\n\n");
+	}
 
 	return 0;
 }
