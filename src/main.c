@@ -21,8 +21,7 @@ bool debrief = true; // set to false if post-execution debug info is not needed
 // window states
 enum {
 	MODE_EDIT,
-	MODE_CMD,
-	MODE_NORMAL
+	MODE_CMD
 };
 
 //------------------------------------------------------------------------------
@@ -49,7 +48,6 @@ int curses_init(); // initializes curses -- who knew! -- returns error code
 // --- infobar functions ---
 void edit_mode_infobar(WINDOW * interact);    // displays the edit-mode infobar
 void cmd_mode_infobar(WINDOW * interact);     // same as above in command mode
-void normal_mode_infobar(WINDOW * interact);  // you'll never guess!
 void clear_infobar(WINDOW * interact);		  // sets the infobar to blank
 void remove_infobar(WINDOW * interact);		  // removes the infobar
 
@@ -135,7 +133,14 @@ void edit_mode_infobar(WINDOW * interact) {
 
 	wattroff(interact, A_BOLD);
 
-	mvwprintw(interact, LINES - 2, 21, "File drawer -- currently empty :( ");
+	const char * unpadded_message = "File draw -- currently empty :(";
+	int padded_message_len = width() - 22;
+
+	char message[256];
+
+	snprintf(message, padded_message_len, "%-*s", padded_message_len, unpadded_message);
+
+	mvwprintw(interact, LINES - 2, 21, "%s", message);
 	wrefresh(interact);
 
 	wattroff(interact, COLOR_PAIR(MODE_EDIT_IFBP));
@@ -151,26 +156,17 @@ void cmd_mode_infobar(WINDOW * interact) {
 
 	wattroff(interact, A_BOLD);
 
-	mvwprintw(interact, LINES - 2, 21, "Commands are not currently implemented. ");
+	const char * unpadded_message = "SHIFT + Q to exit. F1 to enter edit mode. Other commands not implemented.";
+	int padded_message_len = width() - 22;
+
+	char message[256];
+
+	snprintf(message, padded_message_len, "%-*s", padded_message_len, unpadded_message);
+
+	mvwprintw(interact, LINES - 2, 21, "%s", message);
 	wrefresh(interact);
 
 	wattroff(interact, COLOR_PAIR(MODE_CMD_IFBP));
-}
-
-void normal_mode_infobar(WINDOW * interact) {
-	clear_infobar(interact);
-
-	wattron(interact, COLOR_PAIR(MODE_NORMAL_IFBP));
-	wattron(interact, A_BOLD);
-
-	mvwprintw(interact, LINES - 2, 2, "[F3] NORMAL MODE   ");
-
-	wattroff(interact, A_BOLD);
-
-	mvwprintw(interact, LINES - 2, 21, "SHIFT + Q to exit. F1, F2, F3 to switch modes. ");
-	wrefresh(interact);
-
-	wattroff(interact, COLOR_PAIR(MODE_NORMAL_IFBP));
 }
 
 /*
@@ -202,27 +198,34 @@ int main(void) {
 
 	bool program_should_exit = false;
 
-	int state = MODE_NORMAL;
+	int state = MODE_CMD;
+
+	// cursor position storage
+	int cx = 2;
+	int cy = 1;
 
 	while(!program_should_exit) {
 		switch(state) {
 			case MODE_EDIT:
 				edit_mode_infobar(interact);
+				wrefresh(interact);
 				break;
 			case MODE_CMD:
 				cmd_mode_infobar(interact);
+				wrefresh(interact);
 				break;
 			default:
-				normal_mode_infobar(interact);
+				cmd_mode_infobar(interact);
 				break;
 		}
+
 
 		int c = getch();
 
 		// input handler
 		switch(c) {
 			case (int) 'Q':
-				if(state == MODE_NORMAL) program_should_exit = true;
+				if(state == MODE_CMD) program_should_exit = true;
 				break;
 			case KEY_F(1):
 				state = MODE_EDIT;
@@ -230,10 +233,34 @@ int main(void) {
 			case KEY_F(2):
 				state = MODE_CMD;
 				break;
-			case KEY_F(3):
-				state = MODE_NORMAL;
+			case KEY_BACKSPACE:
+				if(state == MODE_EDIT) {
+					if(cx <= 2) {
+						cx = width() - 2;
+						cy--;
+					} else {
+						cx--;
+					}
+
+					mvwaddch(interact, cx, cy, ' ');
+
+				}
+				break;
+			case KEY_ENTER:
+				if(state == MODE_EDIT) {
+					cx = 2;
+					cy++;
+				}
 				break;
 			default:
+				if(state == MODE_EDIT) {
+					if(cx <= width() - 2) {
+						cx = 2;
+						cy++;
+					}
+
+					mvwaddch(interact, cx, cy, (char) c);
+				}
 				break;
 		}
 
