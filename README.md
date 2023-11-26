@@ -11,3 +11,8 @@ A simple terminal text editor focused on writing, not code editing. Vim-inspired
 - [ ] PDF via editable + configurable LaTeX template export.
 - [x] Cool bugs.
 - [ ] Compiler warnings (*clean* software!).
+
+### Exit Codes
+
+- `0` means the program (should have) worked fine. If it returned 0 and didn't work, let me know.
+- `80` means the terminal window is too small. By default, MINIMUM_WIDTH is set to 100 characters wide. Edit this or, ideally, make your terminal wider.
