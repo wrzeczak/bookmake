@@ -51,6 +51,13 @@ void cmd_mode_infobar(WINDOW * interact);     // same as above in command mode
 void clear_infobar(WINDOW * interact);		  // sets the infobar to blank
 void remove_infobar(WINDOW * interact);		  // removes the infobar
 
+// --- cursor functions ---
+int cursor_back(int * cxp, int * cyp);    // returns 1 if BOF
+int cursor_forward(int * cxp, int * cyp); // returns 1 if EOF
+int cursor_newline(int * cxp, int * cyp); // returns 1 if EOF
+
+void cursor_pos(int cx, int cy); // render a thing showing cursor position
+
 //- utility functions ----------------------------------------------------------
 
 int width() {
@@ -178,6 +185,58 @@ void remove_infobar(WINDOW * interact) {
 
 //------------------------------------------------------------------------------
 
+// moves the cursor back, up a line if necessary, and returns 1 if reaches the
+// beginning of the file
+int cursor_back(int * restrict cxp, int * restrict cyp) {
+	assert(cxp != cyp);
+
+	if(*(cxp) == 2 && *(cyp) == 2) return 1;
+
+	if(*(cxp) < 3) {
+		*(cxp) = width() - 3;
+		*(cyp) -= 1;
+	} else {
+		*(cxp) -= 1;
+	}
+
+	return 0;
+}
+
+// moves the cursor forward, down a line if needed, and returns 1 if it reaches
+// the end of the file (bottom of the screen)
+int cursor_forward(int * restrict cxp, int * restrict cyp) {
+	assert(cxp != cyp);
+
+	if(*(cxp) >= width() - 3 && *(cyp) >= LINES - 2) return 1;
+
+	if(*(cxp) >= width() - 3) {
+		*(cxp) = 2;
+		*(cyp) += 1;
+	} else {
+		*(cxp) += 1;
+	}
+
+	return 0;
+}
+
+int cursor_newline(int * restrict cxp, int * restrict cyp) {
+	assert(cxp != cyp);
+
+	if(*(cyp) == LINES - 2) return 1;
+
+	*(cxp) = 2;
+	*(cyp) += 1;
+
+	return 0;
+}
+
+void cursor_pos(int cx, int cy) {
+	mvwprintw(stdscr, 1, 1, "[ %d, %d ]", cx, cy);
+	refresh();
+}
+
+//------------------------------------------------------------------------------
+
 int main(void) {
 	int init_return = init();
 	refresh();
@@ -198,11 +257,13 @@ int main(void) {
 
 	bool program_should_exit = false;
 
-	int state = MODE_CMD;
+	int state = MODE_EDIT;
 
 	// cursor position storage
 	int cx = 2;
-	int cy = 1;
+	int cy = 4;
+
+	int c = 0;
 
 	while(!program_should_exit) {
 		switch(state) {
@@ -219,8 +280,8 @@ int main(void) {
 				break;
 		}
 
-
-		int c = getch();
+		c = getch();
+		cursor_pos(cx, cy);
 
 		// input handler
 		switch(c) {
@@ -235,35 +296,28 @@ int main(void) {
 				break;
 			case KEY_BACKSPACE:
 				if(state == MODE_EDIT) {
-					if(cx <= 2) {
-						cx = width() - 2;
-						cy--;
-					} else {
-						cx--;
-					}
-
-					mvwaddch(interact, cx, cy, ' ');
-
+					// cursor_back(&cx, &cy);
+					c = (int) ' ';
+					mvwaddch(interact, cy, cx, (char) c);
+					goto __input_exit; // TODO: this sucks!
 				}
 				break;
 			case KEY_ENTER:
 				if(state == MODE_EDIT) {
-					cx = 2;
-					cy++;
+					cursor_newline(&cx, &cy);
+					goto __input_exit;
+
 				}
 				break;
 			default:
 				if(state == MODE_EDIT) {
-					if(cx <= width() - 2) {
-						cx = 2;
-						cy++;
-					}
-
-					mvwaddch(interact, cx, cy, (char) c);
+					cursor_forward(&cx, &cy);
+					mvwaddch(interact, cy, cx, (char) c);
 				}
 				break;
 		}
 
+		__input_exit:
 		refresh();
 		wrefresh(interact);
 	}
