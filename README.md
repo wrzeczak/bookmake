@@ -14,6 +14,9 @@ A simple terminal text editor focused on writing, not code editing. Vim-inspired
 
 ### Exit Codes
 
+NOTE: These reference the error code printed out onto the terminal, not the error code that the program exits with. The program exits with the amount of init functions that failed, ie. if colors_init() and curses_init() both fail, the program exits with code 2.
+
+
 - `0` means the program (should have) worked fine. If it returned 0 and didn't work, let me know.
 - `20` means your terminal does not support color. I plan to add code to handle this, but for now, use a color terminal.
 - `21` means your terminal is not capable of changing the default colors. Again, I plan to handle this, but it's difficult and frankly, I'm focusing on getting a working product on my machine, not a general-purpose product, at the moment.
