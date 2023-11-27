@@ -4,8 +4,9 @@ A simple terminal text editor focused on writing, not code editing. Vim-inspired
 
 ### Features
 
-- [ ] Text editor with a light and dark mode and support for italics and bold.
+- [x] Text editor with support for italics, underline and bold.
 - [ ] Configurable text + background themes.
+- [ ] Live toggling between themes.
 - [ ] Text export.
 - [ ] Markdown/HTML export.
 - [ ] PDF via editable + configurable LaTeX template export.
@@ -18,7 +19,11 @@ To switch between program states, use `F1` (edit), `F2` (command).
 
 Edit mode will allow you to edit the text before you. Essentially Vim's insert mode.
 
+To italicize, enbold, or underline text, use `CTRL` and `i`, `b`, or `u`, respectively.
+
 Command mode will allow you to save/create files, changes themes, etc. It's essentially like Vim's normal mode.
+
+Use `SHIFT + q` to exit while in command mode.
 
 ### Exit Codes
 
@@ -36,4 +41,4 @@ FYI: I write and test on Linux.
 
 `LAVENDER TOWN` -- When displaying text in a color theme, changing tabs (in my case, changing dwm windows) screws up the color themes and makes them all lavender-y. I don't know what causes this. For now, just don't alt-tab? Beta and buggy software, folks!
 
-`CHARACTER INPUT` -- It doesn't work. Backspace, enter, text wrapping, all of it. This will be the first bug I fix.
+`CURSOR LOCATOR` -- It's not exactly accurate, especially when dealing with backspaces and traversing across lines.
