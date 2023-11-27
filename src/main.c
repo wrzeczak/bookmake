@@ -46,7 +46,7 @@ int curses_init(); // initializes curses -- who knew! -- returns error code
 // void colors_init(); // initalizes curses color pairs, defined in colors.h
 
 // --- infobar functions ---
-void edit_mode_infobar(WINDOW * interact);    // displays the edit-mode infobar
+void edit_mode_infobar(WINDOW * interact, bool bold, bool italic, bool underline);    // displays the edit-mode infobar
 void cmd_mode_infobar(WINDOW * interact);     // same as above in command mode
 void clear_infobar(WINDOW * interact);		  // sets the infobar to blank
 void remove_infobar(WINDOW * interact);		  // removes the infobar
@@ -130,8 +130,13 @@ void clear_infobar(WINDOW * interact) {
 	wattroff(interact, COLOR_PAIR(MODE_CLEAR_IFBP));
 }
 
-void edit_mode_infobar(WINDOW * interact) {
+void edit_mode_infobar(WINDOW * interact, bool bold, bool italic, bool underline) {
+	wattroff(interact, A_ITALIC);
+	wattroff(interact, A_BOLD);
+	wattroff(interact, A_UNDERLINE);
+
 	clear_infobar(interact);
+	box(interact, 0, 0);
 
 	wattron(interact, COLOR_PAIR(MODE_EDIT_IFBP));
 	wattron(interact, A_BOLD);
@@ -150,11 +155,28 @@ void edit_mode_infobar(WINDOW * interact) {
 	mvwprintw(interact, LINES - 2, 21, "%s", message);
 	wrefresh(interact);
 
+	if(bold) wattron(interact, A_BOLD);
+	mvwaddch(interact, LINES - 2, width() - 5, 'B');
+	wattroff(interact, A_BOLD);
+	if(italic) wattron(interact, A_ITALIC);
+	mvwaddch(interact, LINES - 2, width() - 4, 'I');
+	wattroff(interact, A_ITALIC);
+
+	if(underline) wattron(interact, A_UNDERLINE);
+	mvwaddch(interact, LINES - 2, width() - 3, 'U');
+	wattroff(interact, A_UNDERLINE);
+
+	// mvwaddch(interact, LINES - 2, width() - 2, ' ');
+
 	wattroff(interact, COLOR_PAIR(MODE_EDIT_IFBP));
+	if(italic) wattron(interact, A_ITALIC);
+	if(underline) wattron(interact, A_UNDERLINE);
+	if(bold) wattron(interact, A_BOLD);
 }
 
 void cmd_mode_infobar(WINDOW * interact) {
 	clear_infobar(interact);
+	box(interact, 0, 0);
 
 	wattron(interact, COLOR_PAIR(MODE_CMD_IFBP));
 	wattron(interact, A_BOLD);
@@ -190,10 +212,10 @@ void remove_infobar(WINDOW * interact) {
 int cursor_back(int * restrict cxp, int * restrict cyp) {
 	assert(cxp != cyp);
 
-	if(*(cxp) == 2 && *(cyp) == 2) return 1;
+	if(*(cxp) == 2 && *(cyp) < 2) return 1;
 
-	if(*(cxp) < 3) {
-		*(cxp) = width() - 3;
+	if(*(cxp) <= 2 && *(cyp) >= 2) {
+		*(cxp) = width() - 2;
 		*(cyp) -= 1;
 	} else {
 		*(cxp) -= 1;
@@ -207,9 +229,9 @@ int cursor_back(int * restrict cxp, int * restrict cyp) {
 int cursor_forward(int * restrict cxp, int * restrict cyp) {
 	assert(cxp != cyp);
 
-	if(*(cxp) >= width() - 3 && *(cyp) >= LINES - 2) return 1;
+	if(*(cyp) >= LINES - 2) return 1;
 
-	if(*(cxp) >= width() - 3) {
+	if(*(cxp) >= width() - 3 && *(cyp) < LINES - 2) {
 		*(cxp) = 2;
 		*(cyp) += 1;
 	} else {
@@ -222,16 +244,16 @@ int cursor_forward(int * restrict cxp, int * restrict cyp) {
 int cursor_newline(int * restrict cxp, int * restrict cyp) {
 	assert(cxp != cyp);
 
-	if(*(cyp) == LINES - 2) return 1;
+	if(*(cyp) >= LINES - 3) return 1;
 
-	*(cxp) = 2;
+	*(cxp) = 1;
 	*(cyp) += 1;
 
 	return 0;
 }
 
 void cursor_pos(int cx, int cy) {
-	mvwprintw(stdscr, 1, 1, "[ %d, %d ]", cx, cy);
+	mvwprintw(stdscr, 1, 1, "[ %03d, %03d ]", cx, cy);
 	refresh();
 }
 
@@ -249,26 +271,39 @@ int main(void) {
 	WINDOW * interact;
 
 	interact = newwin(LINES, width(), 0, padding());
+
+	attron(COLOR_PAIR(TT_DARK_MODE));
+	wattron(interact, COLOR_PAIR(TT_DARK_MODE));
+
+	touchwin(interact);
+	touchwin(stdscr);
+
 	box(interact, 0, 0);
 
 	clear_infobar(interact);
 	wrefresh(interact);
 	refresh();
 
+
 	bool program_should_exit = false;
 
 	int state = MODE_EDIT;
 
 	// cursor position storage
-	int cx = 2;
-	int cy = 4;
+	int cx = 1;
+	int cy = 1;
 
+	cursor_pos(cx, cy);
 	int c = 0;
+
+	bool italic = false;
+	bool underline = false;
+	bool bold = false;
 
 	while(!program_should_exit) {
 		switch(state) {
 			case MODE_EDIT:
-				edit_mode_infobar(interact);
+				edit_mode_infobar(interact, bold, italic, underline);
 				wrefresh(interact);
 				break;
 			case MODE_CMD:
@@ -294,17 +329,52 @@ int main(void) {
 			case KEY_F(2):
 				state = MODE_CMD;
 				break;
-			case KEY_BACKSPACE:
+			case ('b' & 0x1f):
 				if(state == MODE_EDIT) {
-					// cursor_back(&cx, &cy);
-					c = (int) ' ';
-					mvwaddch(interact, cy, cx, (char) c);
-					goto __input_exit; // TODO: this sucks!
+					if(bold) {
+						bold = false;
+						wattroff(interact, A_BOLD);
+					} else {
+						bold = true;
+						wattron(interact, A_BOLD);
+					}
 				}
 				break;
-			case KEY_ENTER:
+			case ('u' & 0x1f):
+				if(state == MODE_EDIT) {
+					if(underline) {
+						underline = false;
+						wattroff(interact, A_UNDERLINE);
+					} else {
+						underline = true;
+						wattron(interact, A_UNDERLINE);
+					}
+				}
+				break;
+			case ('i' & 0x1f):
+				if(state == MODE_EDIT) {
+					if(italic) {
+						italic = false;
+						wattroff(interact, A_ITALIC);
+					} else {
+						italic = true;
+						wattron(interact, A_ITALIC);
+					}
+				}
+				break;
+			case KEY_DC:
+			case KEY_BACKSPACE:
+				if(state == MODE_EDIT) {
+					c = (int) ' ';
+					mvwaddch(interact, cy, cx, (char) c);
+					cursor_back(&cx, &cy);
+					cursor_pos(cx, cy);
+				}
+				break;
+			case (int) '\n':
 				if(state == MODE_EDIT) {
 					cursor_newline(&cx, &cy);
+					cursor_pos(cx, cy);
 					goto __input_exit;
 
 				}
